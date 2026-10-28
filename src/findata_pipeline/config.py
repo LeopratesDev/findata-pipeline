@@ -41,6 +41,10 @@ CORS_ORIGINS = [
 # Janela padrao (em dias) quando a API dispara uma coleta sem janela explicita.
 DEFAULT_COLLECTION_DAYS = int(os.environ.get("DEFAULT_COLLECTION_DAYS", "180"))
 
+# Rate limit do POST /runs (janela deslizante por processo).
+RUN_RATE_LIMIT_MAX = int(os.environ.get("RUN_RATE_LIMIT_MAX", "5"))
+RUN_RATE_LIMIT_WINDOW_S = float(os.environ.get("RUN_RATE_LIMIT_WINDOW_S", "60"))
+
 
 @dataclass(frozen=True)
 class SeriesConfig:

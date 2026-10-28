@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
+from datetime import date
 
 from .reporter import ExecutionReport
 
@@ -57,6 +58,35 @@ def evaluate(
                     f"{outcome.series_id}: taxa de rejeicao {rate:.0%} "
                     f"acima do limite {max_rejection_rate:.0%}",
                 )
+            )
+    return alerts
+
+
+# Idade maxima aceitavel do ultimo dado, por periodicidade (dias).
+PERIODICITY_MAX_AGE_DAYS = {"business_day": 5, "calendar_day": 5, "monthly": 40}
+
+
+def evaluate_freshness(
+    latest: dict, today: date, max_age_days: dict | None = None
+) -> list[Alert]:
+    """Alerta 'stale_data' quando a ultima data de uma serie esta mais velha
+    que o limite da sua periodicidade. `latest` mapeia series_id ->
+    {"reference_date": "YYYY-MM-DD", "periodicity": "..."}."""
+    max_age_days = max_age_days or PERIODICITY_MAX_AGE_DAYS
+    alerts: list[Alert] = []
+    for series_id, info in latest.items():
+        reference_date = info.get("reference_date")
+        if not reference_date:
+            continue
+        try:
+            age = (today - date.fromisoformat(reference_date)).days
+        except ValueError:
+            continue
+        limit = max_age_days.get(info.get("periodicity"), 30)
+        if age > limit:
+            alerts.append(
+                Alert("warning", "stale_data",
+                      f"{series_id}: ultimo dado ha {age} dias (limite {limit})")
             )
     return alerts
 

@@ -220,6 +220,10 @@ A inicialização normal **nunca** apaga dados. (Verificado: após `down` + `up`
 - Concorrência de execução é controlada por lock de processo + marca persistente
   (`status="running"`) → **vale para 1 processo**; múltiplos workers exigiriam um
   lock no banco.
+- **Rate limit** no `POST /runs` (HTTP **429** quando excede a janela), além do
+  controle de concorrência (409). Configurável por `RUN_RATE_LIMIT_MAX`/`_WINDOW_S`.
+- **Alerta de frescor** (`stale_data`): avisa quando uma série parou de atualizar
+  além do limite da sua periodicidade.
 - **Não** considere pronto para exposição pública só porque roda localmente.
 - `beautifulsoup4` é usado pelo adaptador HTML (fonte alternativa); a fonte
   principal (SGS) é JSON.

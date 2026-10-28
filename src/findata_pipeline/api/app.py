@@ -15,6 +15,7 @@ from fastapi.responses import JSONResponse
 
 from .. import config
 from ..database import Database
+from .ratelimit import RateLimiter
 from .routes import health, indicators, reports, runs
 from .routes import status as status_routes
 from .runner import PipelineRunner, RunConflictError
@@ -55,6 +56,7 @@ def create_app(
     app.state.db_path = db_path
     app.state.runner = runner or PipelineRunner(db_path)
     app.state.write_token = config.API_WRITE_TOKEN if write_token is None else write_token
+    app.state.run_limiter = RateLimiter(config.RUN_RATE_LIMIT_MAX, config.RUN_RATE_LIMIT_WINDOW_S)
 
     # Garante o schema (cria tabelas/colunas que faltam) sem apagar dados.
     _db = Database(db_path)

@@ -39,3 +39,14 @@ def require_write_auth(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="token de escrita invalido ou ausente",
         )
+
+
+def rate_limit_runs(request: Request) -> None:
+    """Limita a frequencia de POST /runs (429 quando excede)."""
+    limiter = getattr(request.app.state, "run_limiter", None)
+    if limiter is not None and not limiter.allow():
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="muitas solicitacoes de execucao; tente novamente em instantes",
+            headers={"Retry-After": "30"},
+        )

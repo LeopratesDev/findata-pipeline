@@ -1,7 +1,9 @@
 """Testes da avaliacao de alertas pos-execucao."""
 from __future__ import annotations
 
-from findata_pipeline.alerts import evaluate
+from datetime import date
+
+from findata_pipeline.alerts import evaluate, evaluate_freshness
 from findata_pipeline.reporter import ExecutionReport, SeriesOutcome
 
 
@@ -50,3 +52,15 @@ def test_zero_extracted_without_error_raises_no_data():
     alerts = evaluate(report)
     assert len(alerts) == 1
     assert alerts[0].code == "no_data"
+
+
+def test_evaluate_freshness_flags_stale_series():
+    today = date(2026, 10, 28)
+    latest = {
+        "BCB-SGS-12": {"reference_date": "2026-10-27", "periodicity": "business_day"},   # fresco
+        "BCB-SGS-433": {"reference_date": "2026-06-01", "periodicity": "monthly"},        # velho
+    }
+    found = evaluate_freshness(latest, today)
+    assert len(found) == 1
+    assert found[0].code == "stale_data"
+    assert "BCB-SGS-433" in found[0].message

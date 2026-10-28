@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from ... import config
 from ...database import Database
 from .. import services
-from ..deps import get_db, get_runner, require_write_auth
+from ..deps import get_db, get_runner, rate_limit_runs, require_write_auth
 from ..runner import PipelineRunner, RunConflictError
 from ..schemas import (
     RunCreateRequest,
@@ -51,7 +51,7 @@ def get_run(run_id: int, db: Database = Depends(get_db)) -> RunDetail:
         409: {"description": "Ja existe uma execucao em andamento"},
         422: {"description": "Parametros invalidos"},
     },
-    dependencies=[Depends(require_write_auth)],
+    dependencies=[Depends(require_write_auth), Depends(rate_limit_runs)],
 )
 def create_run(
     body: RunCreateRequest | None = None,

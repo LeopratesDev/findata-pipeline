@@ -245,6 +245,16 @@ def test_create_run_invalid_series_422(client):
     assert r.status_code == 422
 
 
+def test_create_run_rate_limited_429(db_path, tmp_path):
+    from findata_pipeline.api.ratelimit import RateLimiter
+    runner = PipelineRunner(db_path, client_factory=fake_client_factory,
+                            executor=InlineExecutor(), reports_dir=str(tmp_path / "reports"))
+    client = build_client(db_path, runner=runner)
+    client.app.state.run_limiter = RateLimiter(max_calls=1, period_seconds=60)
+    assert client.post("/api/v1/runs", json={}).status_code == 202
+    assert client.post("/api/v1/runs", json={}).status_code == 429
+
+
 # --- relatorios -------------------------------------------------------------
 def test_reports_list_and_download(client, tmp_path, monkeypatch):
     import findata_pipeline.config as cfg

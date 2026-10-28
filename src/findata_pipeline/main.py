@@ -121,6 +121,13 @@ def main(argv: Optional[list[str]] = None) -> int:
         report_path = report.save(str(config.PROJECT_ROOT / "reports"), fmt=args.format)
 
         fired = alerts.evaluate(report, max_rejection_rate=args.max_rejection_rate)
+        # Alerta de frescor: alguma serie parou de atualizar?
+        latest = {}
+        for sid, series in config.SERIES.items():
+            row = db.get_latest(sid)
+            if row:
+                latest[sid] = {"reference_date": row["reference_date"], "periodicity": series.periodicity}
+        fired += alerts.evaluate_freshness(latest, date.today())
         alerts.emit(fired)
 
         print(report.to_terminal())
