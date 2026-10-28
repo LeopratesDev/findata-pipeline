@@ -1,6 +1,6 @@
 # Entrega (Delivery)
 
-Como o FinData Pipeline é entregue, no espírito do GraphHelm.
+Como o FinData Pipeline é entregue: em passos pequenos, verificáveis e guiados por provas.
 
 ## Fluxo: promessa → mudança escopada → prova
 
@@ -29,7 +29,7 @@ Um "pronto" sem prova é uma **pendência**, não uma entrega.
 - A precisão decimal é preservada: valores trafegam como **texto**, nunca
   convertidos para `float` na camada de negócio.
 
-## Portões de qualidade (o "como", à la Keel)
+## Portões de qualidade (o "como")
 
 - Type hints, exceções explícitas, separação rotas/serviços/persistência.
 - Nenhuma regra de negócio reimplementada na API/dashboard — reuso do pipeline.
@@ -39,5 +39,5 @@ Um "pronto" sem prova é uma **pendência**, não uma entrega.
 ## Estado atual (resumo)
 
 Ver [../product/ROADMAP_AND_ACCEPTANCE.md](../product/ROADMAP_AND_ACCEPTANCE.md)
-para o estado e a prova de cada etapa, e [../jpd/JOURNEYS.md](../jpd/JOURNEYS.md)
+para o estado e a prova de cada etapa, e [../journeys/JOURNEYS.md](../journeys/JOURNEYS.md)
 para as jornadas.

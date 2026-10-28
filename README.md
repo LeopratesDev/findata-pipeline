@@ -12,11 +12,11 @@ versiona e armazena indicadores financeiros públicos do Banco Central do Brasil
 > gerados por execuções locais reais contra a API pública do BCB. Não há link de
 > demonstração hospedada.
 
-O projeto segue a disciplina do *Journey-Proven Development* (inspirada no
-[GraphHelm](https://github.com/stabem/GraphHelm)): **evidência acima de
-afirmação**. Ver [docs/INDEX.md](docs/INDEX.md), o roadmap com provas em
+O projeto segue uma disciplina de **desenvolvimento guiado por provas**:
+**evidência acima de afirmação** — um recurso só é considerado pronto quando a
+sua jornada passa na última execução. Ver [docs/INDEX.md](docs/INDEX.md), o roadmap com provas em
 [docs/product/ROADMAP_AND_ACCEPTANCE.md](docs/product/ROADMAP_AND_ACCEPTANCE.md)
-e as jornadas em [docs/jpd/JOURNEYS.md](docs/jpd/JOURNEYS.md).
+e as jornadas em [docs/journeys/JOURNEYS.md](docs/journeys/JOURNEYS.md).
 
 ---
 
@@ -88,7 +88,7 @@ findata-pipeline/
 │   └── dashboard/                               # Dashboard (v2)
 │       ├── app.py client.py format.py
 ├── tests/                 # pytest; fixtures; test_contract (marcado)
-├── docs/                  # INDEX, process/, product/, jpd/ (journeys)
+├── docs/                  # INDEX, process/, product/, journeys/
 ├── Dockerfile · docker-compose.yml · .dockerignore
 ├── requirements.txt · pyproject.toml · .env.example · README.md
 └── .github/workflows/     # ci.yml e scheduled.yml
@@ -217,4 +217,4 @@ A inicialização normal **nunca** apaga dados. (Verificado: após `down` + `up`
 
 Hub em [docs/INDEX.md](docs/INDEX.md): entrega ([DELIVERY](docs/process/DELIVERY.md)),
 roadmap com provas ([ROADMAP_AND_ACCEPTANCE](docs/product/ROADMAP_AND_ACCEPTANCE.md))
-e jornadas ([JOURNEYS](docs/jpd/JOURNEYS.md)).
+e jornadas ([JOURNEYS](docs/journeys/JOURNEYS.md)).

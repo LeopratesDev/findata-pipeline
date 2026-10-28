@@ -1,14 +1,13 @@
 # Documentação — FinData Pipeline
 
-Hub da documentação. O projeto segue uma disciplina inspirada no
-[GraphHelm](https://github.com/stabem/GraphHelm) e no seu *Journey-Proven
-Development*: **evidência acima de afirmação** — um merge, um build verde ou um
-"pronto" não provam que um recurso funciona; ele só está provado quando a sua
-**jornada passa na última execução**.
+Hub da documentação. O projeto segue uma disciplina de **desenvolvimento
+guiado por provas**: **evidência acima de afirmação** — um merge, um build
+verde ou um "pronto" não provam que um recurso funciona; ele só está provado
+quando a sua **jornada passa na última execução**.
 
-> Separação de responsabilidades (à la Keel): a **qualidade** governa *como* o
-> código é escrito (testes offline, type hints, commits pequenos, CI); as
-> **jornadas** governam *se funciona* (fluxos ponta a ponta com prova).
+> Separação de responsabilidades: a **qualidade** governa *como* o código é
+> escrito (testes offline, type hints, commits pequenos, CI); as **jornadas**
+> governam *se funciona* (fluxos ponta a ponta com prova).
 
 ## Mapa
 
@@ -16,7 +15,7 @@ Development*: **evidência acima de afirmação** — um merge, um build verde o
 |-----------|----------|
 | [process/DELIVERY.md](process/DELIVERY.md) | Como entregamos: o que conta como prova, cadência, portões de qualidade. |
 | [product/ROADMAP_AND_ACCEPTANCE.md](product/ROADMAP_AND_ACCEPTANCE.md) | Roadmap por etapas, critérios de aceitação, estado atual e a prova de cada uma. |
-| [jpd/JOURNEYS.md](jpd/JOURNEYS.md) | As jornadas do usuário e a prova (atual) de cada uma. |
+| [journeys/JOURNEYS.md](journeys/JOURNEYS.md) | As jornadas do usuário e a prova (atual) de cada uma. |
 | [../README.md](../README.md) | Visão geral, instalação e execução. |
 
 ## Observadores

@@ -1,4 +1,4 @@
-# Jornadas (Journey-Proven Development)
+# Jornadas (desenvolvimento guiado por provas)
 
 Uma **jornada** é um fluxo do usuário ponta a ponta. Ela só está **provada**
 quando passa na sua última execução, com um observador real. Abaixo, cada

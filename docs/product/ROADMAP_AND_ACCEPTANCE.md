@@ -79,7 +79,7 @@ após `docker compose down` e novo `up`.
 `/health` ok, `/status` ok, dashboard HTTP 200. Coleta disparada pela API
 dentro do container → **209 observações** do BCB. **Persistência:** após
 `docker compose down` + `up` (sem remover volume), os dados permaneceram (209).
-Ver jornada **J5** em [../jpd/JOURNEYS.md](../jpd/JOURNEYS.md).
+Ver jornada **J5** em [../journeys/JOURNEYS.md](../journeys/JOURNEYS.md).
 
 ### Etapa 5 — Integração final + README
 
