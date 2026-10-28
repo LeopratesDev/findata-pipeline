@@ -48,3 +48,19 @@ jobs:
             reports/*.json
             data/findata.db
           if-no-files-found: warn
+
+  # Verifica que a API real do BCB ainda entrega a estrutura esperada.
+  # Se o formato mudar, este job fica vermelho antes de dado ruim entrar.
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configurar Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Instalar dependencias
+        run: pip install -r requirements.txt
+      - name: Rodar testes de contrato
+        run: pytest -m contract --run-contract -v

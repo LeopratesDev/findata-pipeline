@@ -114,7 +114,11 @@ findata-pipeline/
 │   ├── test_validator.py
 │   ├── test_database.py
 │   ├── test_reporter.py
-│   └── test_main.py      # integração ponta-a-ponta (sem rede)
+│   ├── test_alerts.py
+│   ├── test_main.py      # integração ponta-a-ponta (sem rede)
+│   └── test_contract.py  # contrato contra a API real (só com --run-contract)
+├── .github/workflows/    # CI (testes) e coleta agendada
+├── conftest.py           # registra a flag --run-contract
 ├── data/                 # banco SQLite gerado (ignorado pelo git)
 ├── reports/              # relatórios gerados (ignorados pelo git)
 ├── logs/
@@ -144,6 +148,9 @@ Configuração opcional via variáveis de ambiente (ver `.env.example`):
 ```bash
 # Testes (não dependem de internet)
 .\.venv\Scripts\python -m pytest -v
+
+# Testes de contrato (acessam a API real do BCB; desligados por padrão)
+.\.venv\Scripts\python -m pytest -m contract --run-contract -v
 
 # Pipeline (coleta real; janela padrão de 180 dias, relatório em JSON)
 # No Windows, exporte o PYTHONPATH para src antes de rodar o módulo:
@@ -269,7 +276,5 @@ reference_date)`. Reexecutar com o mesmo valor vigente continua idempotente
 
 1. **Canais de alerta externos** (webhook/e-mail) além do log, para que a
    falha chegue a quem opera sem depender de olhar o artefato.
-2. **Teste de contrato** agendado contra o endpoint real do BCB, separado da
-   suíte offline, para detectar mudança de estrutura antes que ela entre no banco.
-3. **Mais séries e um adaptador HTML** (Tesouro Nacional) usando o
+2. **Mais séries e um adaptador HTML** (Tesouro Nacional) usando o
    `beautifulsoup4`, com fixtures locais — ampliando a cobertura de dados.
