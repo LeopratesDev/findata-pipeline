@@ -77,6 +77,28 @@ hr { border-color: rgba(255,255,255,.12); }
 </style>
 """
 
+_DARK_CSS = """
+<style>
+.stApp, section[data-testid="stAppViewContainer"], .block-container { background-color: #0e1726; }
+.stApp, .block-container p, .block-container span, .block-container label, .block-container li,
+.stMarkdown, [data-testid="stWidgetLabel"] { color: #e6ebf4; }
+h1, h2, h3 { color: #f1f5fb !important; }
+.fd-card { background: #15213a; border-color: #24324d; }
+.fd-card-value { color: #f1f5fb; }
+.fd-card-label, .fd-card-sub { color: #9fb0c7; }
+[data-testid="stMetric"] { background: #15213a; border-color: #24324d; }
+[data-testid="stMetricValue"] { color: #f1f5fb; }
+[data-testid="stMetricLabel"], [data-testid="stMetricLabel"] * { color: #9fb0c7; }
+[data-baseweb="select"] > div, [data-baseweb="input"] > div,
+.stTextInput input, .stNumberInput input, .stDateInput input {
+  background-color: #15213a !important; color: #e6ebf4 !important; border-color: #24324d !important;
+}
+[data-testid="stExpander"] { background: #15213a; border: 1px solid #24324d; border-radius: 12px; }
+.fd-ok { background: #10371f; color: #8ff0b5; }
+.fd-off { background: #3a1414; color: #ff9a9a; }
+</style>
+"""
+
 PLOTLY_LAYOUT = dict(
     template="plotly_white",
     font=dict(family="sans-serif", color="#1f2a37", size=13),
@@ -129,10 +151,21 @@ def _page_header(title: str, caption: str = "") -> None:
         st.caption(caption)
 
 
+def _dark_enabled() -> bool:
+    return bool(st.session_state.get("dark"))
+
+
 def _style_chart(fig: go.Figure, title: str, y_title: str) -> go.Figure:
-    fig.update_layout(title=title, xaxis_title="Data de referencia", yaxis_title=y_title, **PLOTLY_LAYOUT)
-    fig.update_xaxes(gridcolor="#eef2f7")
-    fig.update_yaxes(gridcolor="#eef2f7")
+    layout = dict(PLOTLY_LAYOUT)
+    if _dark_enabled():
+        layout["template"] = "plotly_dark"
+        layout["paper_bgcolor"] = "rgba(0,0,0,0)"
+        layout["plot_bgcolor"] = "rgba(0,0,0,0)"
+        layout["font"] = dict(family="sans-serif", color="#e6ebf4", size=13)
+    fig.update_layout(title=title, xaxis_title="Data de referencia", yaxis_title=y_title, **layout)
+    grid = "#24324d" if _dark_enabled() else "#eef2f7"
+    fig.update_xaxes(gridcolor=grid)
+    fig.update_yaxes(gridcolor=grid)
     return fig
 
 
@@ -413,7 +446,11 @@ def render() -> None:
             },
         )
         st.markdown("<hr/>", unsafe_allow_html=True)
+        st.toggle("Modo escuro", key="dark")
         st.caption(f"API: {API_BASE_URL}")
+
+    if _dark_enabled():
+        st.markdown(_DARK_CSS, unsafe_allow_html=True)
 
     client = _client()
     dispatch = {

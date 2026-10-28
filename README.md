@@ -29,6 +29,9 @@ e as jornadas em [docs/journeys/JOURNEYS.md](docs/journeys/JOURNEYS.md).
 | ![Visão geral do dashboard](docs/img/dashboard-overview.jpg) | ![Gráficos do dashboard](docs/img/dashboard-charts.jpg) |
 
 Capturas reais do dashboard rodando via Docker, com dados coletados do BCB.
+O dashboard tem **modo claro e escuro**, alternável na barra lateral:
+
+![Dashboard em modo escuro](docs/img/dashboard-dark.jpg)
 
 ## Objetivo e problema
 
