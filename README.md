@@ -66,6 +66,12 @@ As três séries foram verificadas ao vivo contra a API. A API é de **dados
 abertos**; o cliente usa timeout, retry com backoff e não contorna nenhum
 controle de acesso.
 
+> **Comportamento observado:** quando não há dado no intervalo pedido (ex.:
+> uma série mensal numa janela curta), a API responde **HTTP 404**. O cliente
+> trata isso como "sem dados" (retorna vazio e dispara o alerta `no_data`),
+> em vez de considerar falha de coleta — distinguindo ausência de dado de
+> uma indisponibilidade real (5xx/timeout).
+
 ## Arquitetura (diagrama textual)
 
 ```
@@ -167,10 +173,32 @@ Duplicados      : 0
 Revisoes        : 0
 Erros           : 0
 ==================================================
+Alertas         : 0
 ```
 
 Ao rodar **uma segunda vez** a mesma janela, a idempotência aparece:
 `Novos (insert): 0` e `Duplicados: 209` — nenhum registro é duplicado.
+
+## Agendamento e alertas
+
+**Alertas** (módulo `alerts.py`): ao fim de cada execução o relatório é
+avaliado e geram-se alertas acionáveis —
+
+- `collection_failed` (error): falha de coleta em alguma série;
+- `high_rejection_rate` (warning): taxa de rejeição acima do limite
+  (`--max-rejection-rate`, padrão 20%);
+- `no_data` (warning): série sem nenhum registro extraído.
+
+O canal padrão é o **log**; quando algum alerta dispara, o processo encerra
+com **exit code 1**, para que o agendador perceba a falha. Integrações
+externas (webhook, e-mail) ficam como extensão e não são enviadas por padrão.
+
+**Agendamento**: o workflow [`scheduled.yml`](.github/workflows/scheduled.yml)
+roda a coleta diariamente (cron `0 9 * * *`, também disparável à mão) e
+publica `reports/*.json` e `data/findata.db` como artefato — inclusive quando
+um alerta dispara, para servir de evidência. Localmente, o mesmo papel cabe
+ao Agendador de Tarefas (Windows) ou ao cron (Linux) chamando o comando do
+pipeline.
 
 ## Exemplo de relatório (`reports/report_*.json`)
 
@@ -239,8 +267,8 @@ reference_date)`. Reexecutar com o mesmo valor vigente continua idempotente
 
 ## Melhorias futuras
 
-1. **Agendamento e alertas**: rodar a rotina periodicamente e alertar em
-   falha de coleta ou em pico de rejeições.
+1. **Canais de alerta externos** (webhook/e-mail) além do log, para que a
+   falha chegue a quem opera sem depender de olhar o artefato.
 2. **Teste de contrato** agendado contra o endpoint real do BCB, separado da
    suíte offline, para detectar mudança de estrutura antes que ela entre no banco.
 3. **Mais séries e um adaptador HTML** (Tesouro Nacional) usando o

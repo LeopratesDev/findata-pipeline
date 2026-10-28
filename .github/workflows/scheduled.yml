@@ -1,0 +1,50 @@
+name: Scheduled collection
+
+# Agendamento: coleta diaria as 09:00 UTC. Tambem pode ser disparada
+# manualmente pela aba Actions (workflow_dispatch).
+on:
+  schedule:
+    - cron: "0 9 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configurar Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Instalar dependencias
+        run: pip install -r requirements.txt
+
+      # Persistencia best-effort do banco entre execucoes agendadas, para
+      # demonstrar a idempotencia (reexecucao nao duplica).
+      - name: Restaurar banco do cache
+        uses: actions/cache@v4
+        with:
+          path: data/findata.db
+          key: findata-db-${{ github.run_id }}
+          restore-keys: |
+            findata-db-
+
+      - name: Executar pipeline
+        env:
+          PYTHONPATH: src
+        run: python -m findata_pipeline.main --days 30
+
+      # Mantem o relatorio e o banco mesmo se o pipeline sair com codigo != 0
+      # (ou seja, quando um alerta dispara) - o artefato vira a evidencia.
+      - name: Publicar relatorio e banco
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: findata-report
+          path: |
+            reports/*.json
+            data/findata.db
+          if-no-files-found: warn

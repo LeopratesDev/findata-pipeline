@@ -101,6 +101,13 @@ class SgsClient:
 
         response = self._get_with_retry(url, params, series.series_id)
 
+        if response.status_code == 404:
+            # A API do SGS responde 404 quando nao ha dado no intervalo pedido
+            # (ex.: serie mensal numa janela curta). Isso e "sem dados", nao
+            # falha de coleta: retorna vazio e deixa o alerta 'no_data'
+            # sinalizar, em vez de derrubar a execucao.
+            logger.warning("%s: sem dados no intervalo (HTTP 404)", series.series_id)
+            return []
         if response.status_code != 200:
             raise ScraperHTTPError(
                 f"{series.series_id}: status inesperado {response.status_code}"

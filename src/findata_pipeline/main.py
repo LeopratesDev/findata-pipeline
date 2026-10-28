@@ -15,7 +15,7 @@ import sys
 from datetime import date, timedelta
 from typing import Optional, Sequence
 
-from . import config
+from . import alerts, config
 from .database import Database, WriteStats
 from .reporter import ExecutionReport, SeriesOutcome
 from .scraper import ScraperError, SgsClient
@@ -96,6 +96,8 @@ def _parse_args(argv: Optional[list[str]]) -> argparse.Namespace:
     parser.add_argument("--days", type=int, default=180, help="janela de coleta em dias (padrao 180)")
     parser.add_argument("--series", action="append", choices=list(config.SERIES.keys()),
                         help="serie a coletar (repetivel); padrao = todas")
+    parser.add_argument("--max-rejection-rate", type=float, default=alerts.DEFAULT_MAX_REJECTION_RATE,
+                        help="limite da taxa de rejeicao por serie antes de alertar (0 a 1)")
     return parser.parse_args(argv)
 
 
@@ -111,9 +113,17 @@ def main(argv: Optional[list[str]] = None) -> int:
     try:
         report = run_pipeline(SgsClient(), db, series_ids=args.series, start=start, end=end)
         report_path = report.save(str(config.PROJECT_ROOT / "reports"), fmt=args.format)
+
+        fired = alerts.evaluate(report, max_rejection_rate=args.max_rejection_rate)
+        alerts.emit(fired)
+
         print(report.to_terminal())
+        print(f"Alertas         : {len(fired)}")
         print(f"Relatorio: {report_path}")
-        return 1 if report.errors else 0
+        # exit != 0 so em falha de coleta ou alerta de severidade 'error';
+        # alertas 'warning' (ex.: sem dado) sao sinalizados mas nao derrubam a rotina
+        has_error = bool(report.errors) or any(a.severity == "error" for a in fired)
+        return 1 if has_error else 0
     except Exception as exc:  # falha inesperada -> codigo de saida != 0
         logger.exception("falha inesperada na execucao: %s", exc)
         return 1

@@ -91,6 +91,13 @@ def test_fetch_series_http_error_raises():
         client.fetch_series(CDI)
 
 
+def test_fetch_series_404_returns_empty_not_error():
+    # 404 = "sem dado no intervalo"; nao e falha de coleta.
+    session = FakeSession(FakeResponse(404, "<html>Not Found</html>"))
+    client = SgsClient(session=session)
+    assert client.fetch_series(CDI) == []
+
+
 def test_fetch_series_connection_error_retries_then_raises():
     session = FakeSession(exc=requests.ConnectionError("sem rede"))
     client = SgsClient(session=session, max_retries=3, backoff_seconds=0)
