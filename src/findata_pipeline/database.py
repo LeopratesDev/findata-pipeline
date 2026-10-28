@@ -86,19 +86,55 @@ class Database:
         # CLI; em :memory: o PRAGMA e um no-op inofensivo.
         self._conn.execute("PRAGMA journal_mode = WAL")
 
+    # Colunas acrescentadas na v2 (API). Migracao aditiva: nunca recria a
+    # tabela runs nem apaga dados existentes.
+    _RUNS_EXTRA_COLUMNS = {
+        "window_start": "TEXT",
+        "window_end": "TEXT",
+        "requested_series": "TEXT",
+        "error_detail": "TEXT",
+        "trigger": "TEXT",
+    }
+
     def initialize(self) -> None:
         with self._conn:
             self._conn.executescript(_SCHEMA)
+        self._migrate_runs()
+
+    def _migrate_runs(self) -> None:
+        """Migracao aditiva e idempotente: adiciona a runs as colunas que
+        faltam (PRAGMA table_info + ALTER TABLE ADD COLUMN), preservando os
+        dados. Os nomes vem de uma lista fixa interna, nunca de entrada externa."""
+        existing = {row["name"] for row in self._conn.execute("PRAGMA table_info(runs)")}
+        with self._conn:
+            for column, coltype in self._RUNS_EXTRA_COLUMNS.items():
+                if column not in existing:
+                    self._conn.execute(f"ALTER TABLE runs ADD COLUMN {column} {coltype}")
+                    logger.info("migracao: coluna runs.%s adicionada", column)
 
     def close(self) -> None:
         self._conn.close()
 
     # ------------------------------------------------------------------ runs
-    def start_run(self, source: str, started_at: str) -> int:
+    def start_run(
+        self,
+        source: str,
+        started_at: str,
+        *,
+        status: str = "running",
+        trigger: str = "cli",
+        window_start: Optional[str] = None,
+        window_end: Optional[str] = None,
+        requested_series: Optional[str] = None,
+    ) -> int:
         with self._conn:
             cur = self._conn.execute(
-                "INSERT INTO runs (started_at, source, status) VALUES (?, ?, ?)",
-                (started_at, source, "running"),
+                """INSERT INTO runs
+                   (started_at, source, status, trigger,
+                    window_start, window_end, requested_series)
+                   VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                (started_at, source, status, trigger,
+                 window_start, window_end, requested_series),
             )
         return int(cur.lastrowid)
 
@@ -112,16 +148,57 @@ class Database:
         rejected: int,
         stats: WriteStats,
         status: str,
+        error_detail: Optional[str] = None,
     ) -> None:
         with self._conn:
             self._conn.execute(
                 """UPDATE runs
                    SET finished_at = ?, extracted = ?, valid = ?, rejected = ?,
-                       inserted = ?, duplicates = ?, revisions = ?, status = ?
+                       inserted = ?, duplicates = ?, revisions = ?, status = ?,
+                       error_detail = ?
                    WHERE id = ?""",
                 (finished_at, extracted, valid, rejected, stats.inserted,
-                 stats.duplicates, stats.revisions, status, run_id),
+                 stats.duplicates, stats.revisions, status, error_detail, run_id),
             )
+
+    def set_run_failed(self, run_id: int, finished_at: str, error_detail: str) -> None:
+        with self._conn:
+            self._conn.execute(
+                "UPDATE runs SET finished_at = ?, status = 'failed', error_detail = ? WHERE id = ?",
+                (finished_at, error_detail, run_id),
+            )
+
+    def get_runs(self, limit: int = 50, offset: int = 0) -> list[dict]:
+        cur = self._conn.execute(
+            "SELECT * FROM runs ORDER BY id DESC LIMIT ? OFFSET ?", (limit, offset)
+        )
+        return [dict(row) for row in cur.fetchall()]
+
+    def count_runs(self) -> int:
+        return int(self._conn.execute("SELECT COUNT(*) FROM runs").fetchone()[0])
+
+    def get_run(self, run_id: int) -> Optional[dict]:
+        row = self._conn.execute("SELECT * FROM runs WHERE id = ?", (run_id,)).fetchone()
+        return dict(row) if row else None
+
+    def get_running_run(self) -> Optional[dict]:
+        row = self._conn.execute(
+            "SELECT * FROM runs WHERE status = 'running' ORDER BY id DESC LIMIT 1"
+        ).fetchone()
+        return dict(row) if row else None
+
+    def get_last_successful_run(self) -> Optional[dict]:
+        row = self._conn.execute(
+            "SELECT * FROM runs WHERE status IN ('done', 'completed_with_errors') "
+            "ORDER BY id DESC LIMIT 1"
+        ).fetchone()
+        return dict(row) if row else None
+
+    def get_rejections(self, run_id: int) -> list[dict]:
+        cur = self._conn.execute(
+            "SELECT * FROM rejections WHERE run_id = ? ORDER BY id", (run_id,)
+        )
+        return [dict(row) for row in cur.fetchall()]
 
     # ---------------------------------------------------------- observations
     def insert_observations(self, observations: Iterable[dict]) -> WriteStats:
@@ -223,4 +300,64 @@ class Database:
             self._conn.execute(
                 "SELECT COUNT(*) FROM observations WHERE is_current = 1"
             ).fetchone()[0]
+        )
+
+    def get_latest(self, series_id: str) -> Optional[dict]:
+        """Ultima observacao vigente de uma serie (maior reference_date)."""
+        row = self._conn.execute(
+            """SELECT * FROM observations
+               WHERE series_id = ? AND is_current = 1
+               ORDER BY reference_date DESC LIMIT 1""",
+            (series_id,),
+        ).fetchone()
+        return dict(row) if row else None
+
+    @staticmethod
+    def _obs_filter(series_id, start, end, include_history):
+        clauses: list[str] = []
+        params: list = []
+        if not include_history:
+            clauses.append("is_current = 1")
+        if series_id:
+            clauses.append("series_id = ?")
+            params.append(series_id)
+        if start:
+            clauses.append("reference_date >= ?")
+            params.append(start)
+        if end:
+            clauses.append("reference_date <= ?")
+            params.append(end)
+        return clauses, params
+
+    def query_observations(
+        self,
+        series_id: Optional[str] = None,
+        start: Optional[str] = None,
+        end: Optional[str] = None,
+        limit: Optional[int] = None,
+        offset: int = 0,
+        include_history: bool = False,
+    ) -> list[dict]:
+        """Historico filtrado/paginado (reference_date em ISO permite
+        comparacao por string). Ordena do mais recente para o mais antigo."""
+        clauses, params = self._obs_filter(series_id, start, end, include_history)
+        where = (" WHERE " + " AND ".join(clauses)) if clauses else ""
+        sql = f"SELECT * FROM observations{where} ORDER BY reference_date DESC, version DESC"
+        if limit is not None:
+            sql += " LIMIT ? OFFSET ?"
+            params = params + [limit, offset]
+        cur = self._conn.execute(sql, params)
+        return [dict(row) for row in cur.fetchall()]
+
+    def count_observations_query(
+        self,
+        series_id: Optional[str] = None,
+        start: Optional[str] = None,
+        end: Optional[str] = None,
+        include_history: bool = False,
+    ) -> int:
+        clauses, params = self._obs_filter(series_id, start, end, include_history)
+        where = (" WHERE " + " AND ".join(clauses)) if clauses else ""
+        return int(
+            self._conn.execute(f"SELECT COUNT(*) FROM observations{where}", params).fetchone()[0]
         )

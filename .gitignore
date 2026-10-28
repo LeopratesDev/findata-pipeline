@@ -13,6 +13,8 @@ venv/
 
 # Artefatos gerados em tempo de execucao (historico fica so no banco/relatorio)
 data/*.db
+data/*.db-wal
+data/*.db-shm
 reports/*.csv
 reports/*.json
 logs/*.log

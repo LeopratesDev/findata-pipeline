@@ -37,12 +37,18 @@ def run_pipeline(
     series_ids: Optional[Sequence[str]] = None,
     start: Optional[date] = None,
     end: Optional[date] = None,
+    run_id: Optional[int] = None,
 ) -> ExecutionReport:
-    """Executa o pipeline para as series indicadas e devolve o relatorio."""
+    """Executa o pipeline para as series indicadas e devolve o relatorio.
+
+    ``run_id`` permite reaproveitar uma linha de ``runs`` ja criada (a API
+    cria a linha antes para responder 202 imediatamente). Se None, o
+    pipeline abre a propria execucao - comportamento do CLI, inalterado."""
     series_ids = list(series_ids) if series_ids else list(config.SERIES.keys())
     started_at = utc_now_iso()
     collected_at = started_at
-    run_id = db.start_run(config.SOURCE, started_at)
+    if run_id is None:
+        run_id = db.start_run(config.SOURCE, started_at)
 
     report = ExecutionReport(source=config.SOURCE, started_at=started_at, finished_at="")
     agg = WriteStats()

@@ -25,6 +25,21 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DB_PATH = os.environ.get("DB_PATH", str(PROJECT_ROOT / "data" / "findata.db"))
 LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO")
 REQUEST_TIMEOUT = float(os.environ.get("REQUEST_TIMEOUT", "15"))
+REPORTS_DIR = os.environ.get("REPORTS_DIR", str(PROJECT_ROOT / "reports"))
+
+# --- API (v2) --------------------------------------------------------------
+# Token opcional para proteger operacoes de escrita (POST /runs). Vazio =
+# aberto (so aceitavel em ambiente estritamente local).
+API_WRITE_TOKEN = os.environ.get("API_WRITE_TOKEN", "")
+# Origens permitidas no CORS (lista separada por virgula); default: a origem
+# local do dashboard Streamlit.
+CORS_ORIGINS = [
+    origin.strip()
+    for origin in os.environ.get("CORS_ORIGINS", "http://localhost:8501").split(",")
+    if origin.strip()
+]
+# Janela padrao (em dias) quando a API dispara uma coleta sem janela explicita.
+DEFAULT_COLLECTION_DAYS = int(os.environ.get("DEFAULT_COLLECTION_DAYS", "180"))
 
 
 @dataclass(frozen=True)
