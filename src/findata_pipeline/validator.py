@@ -80,9 +80,9 @@ def validate_records(
             )
             continue
 
-        # 3) valor -> Decimal
+        # 3) valor -> Decimal (raw_value ja foi garantido nao-nulo acima)
         try:
-            value = _normalize_decimal(raw_value)
+            value = _normalize_decimal(str(raw_value))
         except (InvalidOperation, AttributeError):
             result.rejected.append(
                 Rejection(series.series_id, raw_data, raw_value, "invalid_numeric_value")

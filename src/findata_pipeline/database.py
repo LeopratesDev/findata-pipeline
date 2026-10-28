@@ -136,7 +136,7 @@ class Database:
                 (started_at, source, status, trigger,
                  window_start, window_end, requested_series),
             )
-        return int(cur.lastrowid)
+        return int(cur.lastrowid or 0)
 
     def finish_run(
         self,

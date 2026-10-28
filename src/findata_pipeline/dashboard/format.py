@@ -26,7 +26,9 @@ STATUS_LABELS = {
 
 
 def unit_label(unit: Optional[str]) -> str:
-    return UNIT_LABELS.get(unit, unit or "")
+    if not unit:
+        return ""
+    return UNIT_LABELS.get(unit, unit)
 
 
 def format_date(iso: Optional[str]) -> str:
@@ -75,11 +77,11 @@ def format_duration(seconds: Optional[float]) -> str:
 
 
 def status_label(status: Optional[str]) -> str:
-    return STATUS_LABELS.get(status, (status or "—", "info"))[0]
+    return STATUS_LABELS.get(status or "", (status or "—", "info"))[0]
 
 
 def status_category(status: Optional[str]) -> str:
-    return STATUS_LABELS.get(status, ("", "info"))[1]
+    return STATUS_LABELS.get(status or "", ("", "info"))[1]
 
 
 def moving_average(values: list[float], window: int) -> list:

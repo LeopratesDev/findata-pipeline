@@ -61,6 +61,6 @@ jobs:
           python-version: "3.12"
           cache: pip
       - name: Instalar dependencias
-        run: pip install -r requirements.txt
+        run: pip install -r requirements-dev.txt
       - name: Rodar testes de contrato
         run: pytest -m contract --run-contract -v

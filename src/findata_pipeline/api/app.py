@@ -15,7 +15,8 @@ from fastapi.responses import JSONResponse
 
 from .. import config
 from ..database import Database
-from .routes import health, indicators, reports, runs, status as status_routes
+from .routes import health, indicators, reports, runs
+from .routes import status as status_routes
 from .runner import PipelineRunner, RunConflictError
 from .services import InvalidReportIdError, ReportNotFoundError, UnknownSeriesError
 

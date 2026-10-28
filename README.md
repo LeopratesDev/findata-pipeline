@@ -1,6 +1,8 @@
 # FinData Pipeline
 
 ![CI](https://github.com/LeopratesDev/findata-pipeline/actions/workflows/ci.yml/badge.svg)
+[![Lint: ruff](https://img.shields.io/badge/lint-ruff-261230.svg)](https://github.com/astral-sh/ruff)
+[![Tipos: mypy](https://img.shields.io/badge/tipos-mypy-blue.svg)](https://mypy-lang.org/)
 
 **Plataforma de Inteligência de Indicadores Financeiros.** Coleta, valida,
 versiona e armazena indicadores financeiros públicos do Banco Central do Brasil
@@ -167,15 +169,22 @@ Uma segunda chamada simultânea recebe **409**. Com `API_WRITE_TOKEN` definido,
 
 ## Testes
 
+Ferramentas de dev/teste ficam em `requirements-dev.txt` (fora da imagem de
+produção): `pip install -r requirements-dev.txt`.
+
 ```bash
-.\.venv\Scripts\python -m pytest -v                         # offline (sem rede)
+ruff check .                                                # lint + ordem de imports
+mypy                                                        # checagem de tipos
+.\.venv\Scripts\python -m pytest -v --cov=findata_pipeline  # offline + cobertura
 .\.venv\Scripts\python -m pytest -m contract --run-contract # contrato (API real do BCB)
 ```
 
 Cobrem pipeline, API (health, indicadores, histórico/paginação, validação 422,
 série inexistente 404, execução 202, conflito 409, download seguro e bloqueio de
-path traversal) e as funções puras do dashboard. **77 testes offline + 3 de
-contrato.** Os testes comuns não acessam a internet nem disparam coleta real.
+path traversal) e as funções puras do dashboard. **78 testes offline + 3 de
+contrato**, cobertura ~77% (o núcleo entre 84% e 96%; a UI do Streamlit não é
+unit-testada). O CI roda ruff, mypy e os testes com cobertura. Os testes comuns
+não acessam a internet nem disparam coleta real.
 
 ## Persistência, backup e restauração
 

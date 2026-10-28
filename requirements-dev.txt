@@ -1,0 +1,8 @@
+# Dependencias de desenvolvimento e CI (NAO entram na imagem de producao).
+-r requirements.txt
+
+pytest>=8.0,<9
+httpx>=0.27,<0.29        # TestClient do Starlette/FastAPI
+pytest-cov>=5.0,<7       # relatorio de cobertura
+ruff>=0.6,<0.9           # lint + ordenacao de imports
+mypy>=1.11,<2            # checagem de tipos

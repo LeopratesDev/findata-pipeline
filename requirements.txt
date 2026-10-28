@@ -11,9 +11,7 @@ streamlit>=1.38,<2
 plotly>=5.22,<6
 streamlit-option-menu>=0.4,<0.5   # navegacao lateral com icones
 
-# Testes (httpx e' usado pelo TestClient do Starlette/FastAPI)
-pytest>=8.0,<9
-httpx>=0.27,<0.29
+# Ferramentas de teste/dev ficam em requirements-dev.txt (fora da imagem).
 
 # Nota: beautifulsoup4 e' usado pelo adaptador de fonte HTML (html_source.py).
 # A fonte principal (API SGS do BCB) e' JSON; o adaptador cobre fontes que
