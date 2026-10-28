@@ -37,7 +37,7 @@ def history(
     series_id: str,
     start: Optional[date] = Query(default=None, description="Data inicial (ISO) inclusiva"),
     end: Optional[date] = Query(default=None, description="Data final (ISO) inclusiva"),
-    limit: int = Query(default=100, ge=1, le=1000),
+    limit: int = Query(default=100, ge=1, le=5000),
     offset: int = Query(default=0, ge=0),
     include_history: bool = Query(default=False, description="Inclui versoes aposentadas"),
     db: Database = Depends(get_db),

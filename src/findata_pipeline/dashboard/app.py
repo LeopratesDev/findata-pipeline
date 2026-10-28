@@ -11,6 +11,7 @@ Importar este modulo NAO executa a UI (guardado por __main__).
 """
 from __future__ import annotations
 
+import datetime as dt
 import io
 import os
 
@@ -85,6 +86,34 @@ PLOTLY_LAYOUT = dict(
     height=460,
 )
 
+# Barra de ferramentas do grafico (inclui o botao de baixar PNG).
+PLOTLY_CONFIG = {
+    "displaylogo": False,
+    "modeBarButtonsToRemove": ["lasso2d", "select2d", "autoScale2d"],
+}
+
+PERIOD_PRESETS = {"Ultimos 30 dias": 30, "Ultimos 90 dias": 90, "Ultimo ano": 365, "Tudo": None}
+
+INDICATOR_HELP = {
+    "BCB-SGS-12": "CDI — taxa diaria dos depositos interbancarios (% ao dia). Referencia de operacoes pos-fixadas (FIDC/CRA).",
+    "BCB-SGS-432": "Selic meta — taxa basica de juros definida pelo Copom (% ao ano).",
+    "BCB-SGS-433": "IPCA — variacao mensal da inflacao oficial (% no mes). Referencia de titulos indexados a inflacao (CRI/CRA).",
+}
+
+
+def _period_selector(key: str):
+    """Seletor de periodo com presets + opcao personalizada. Retorna (start, end) em ISO ou None."""
+    choice = st.radio("Periodo", list(PERIOD_PRESETS) + ["Personalizado"], horizontal=True, key=f"{key}_p")
+    if choice == "Personalizado":
+        c1, c2 = st.columns(2)
+        start = c1.date_input("Data inicial", value=None, format="DD/MM/YYYY", key=f"{key}_s")
+        end = c2.date_input("Data final", value=None, format="DD/MM/YYYY", key=f"{key}_e")
+        return (start.isoformat() if start else None, end.isoformat() if end else None)
+    days = PERIOD_PRESETS[choice]
+    if days is None:
+        return (None, None)
+    return ((dt.date.today() - dt.timedelta(days=days)).isoformat(), None)
+
 
 def _client() -> ApiClient:
     return ApiClient(API_BASE_URL, token=API_WRITE_TOKEN)
@@ -117,13 +146,32 @@ def page_overview(client: ApiClient) -> None:
         return
 
     try:
-        status = client.get_status()
-        indicators = client.get_indicators()
+        with st.spinner("Consultando a API..."):
+            status = client.get_status()
+            indicators = client.get_indicators()
     except ApiError as exc:
         st.error(f"Erro ao consultar a API: {exc.detail}")
         return
 
     st.caption(f"Fonte: BCB-SGS · Registros vigentes: {status['observations_count']}")
+
+    if status["observations_count"] == 0:
+        st.info("Ainda nao ha dados coletados. Faca a primeira coleta para popular o "
+                "dashboard (leva alguns segundos).")
+        if st.button("Coletar agora", type="primary"):
+            try:
+                resp = client.create_run()
+                st.success(f"Coleta iniciada (ID {resp['run_id']}). Aguarde alguns "
+                           "segundos e recarregue a pagina.")
+            except ApiError as exc:
+                if exc.status_code == 409:
+                    st.warning("Ja existe uma execucao em andamento.")
+                elif exc.status_code == 401:
+                    st.error("Operacao protegida por token (API_WRITE_TOKEN). Use a "
+                             "pagina de execucao manual ou configure o token.")
+                else:
+                    st.error(f"Falha ao iniciar a coleta: {exc.detail}")
+        return
 
     # Cartoes dos indicadores (HTML proprio para um visual coeso)
     cards = []
@@ -146,12 +194,19 @@ def page_overview(client: ApiClient) -> None:
         )
     st.markdown(f'<div class="fd-cards">{"".join(cards)}</div>', unsafe_allow_html=True)
 
+    with st.expander("O que significam os indicadores?"):
+        for ind in indicators:
+            st.markdown(f"- **{ind['name']}** — {INDICATOR_HELP.get(ind['series_id'], '')}")
+
     st.write("")
     c1, c2, c3 = st.columns(3)
-    c1.metric("Ultima coleta", fmt.format_datetime(status.get("last_successful_collection")) or "—")
+    c1.metric("Ultima coleta", fmt.format_datetime(status.get("last_successful_collection")) or "—",
+              help="Quando a ultima coleta bem-sucedida terminou.")
     last_run = status.get("last_run")
-    c2.metric("Ultima execucao", fmt.status_label(last_run["status"]) if last_run else "—")
-    c3.metric("Registros armazenados", status["observations_count"])
+    c2.metric("Ultima execucao", fmt.status_label(last_run["status"]) if last_run else "—",
+              help="Estado da execucao mais recente do pipeline.")
+    c3.metric("Registros armazenados", status["observations_count"],
+              help="Total de observacoes vigentes no banco.")
 
 
 def page_charts(client: ApiClient) -> None:
@@ -163,15 +218,12 @@ def page_charts(client: ApiClient) -> None:
         return
 
     sid = st.selectbox("Indicador", list(indicators), format_func=lambda s: indicators[s]["name"])
-    c1, c2 = st.columns(2)
-    start = c1.date_input("Data inicial", value=None, format="DD/MM/YYYY")
-    end = c2.date_input("Data final", value=None, format="DD/MM/YYYY")
+    start, end = _period_selector("charts")
+    show_ma = st.checkbox("Media movel (7 periodos)")
 
     try:
-        resp = client.get_history(
-            sid, start=start.isoformat() if start else None,
-            end=end.isoformat() if end else None, limit=1000,
-        )
+        with st.spinner("Consultando o historico..."):
+            resp = client.get_history(sid, start=start, end=end, limit=5000)
     except ApiError as exc:
         st.error(f"Erro ao consultar o historico: {exc.detail}")
         return
@@ -186,8 +238,14 @@ def page_charts(client: ApiClient) -> None:
         x=chart["dates"], y=chart["values"], mode="lines", name=indicators[sid]["name"],
         line=dict(color=ACCENT, width=2), fill="tozeroy", fillcolor="rgba(30,111,235,.08)",
     ))
+    if show_ma:
+        fig.add_trace(go.Scatter(
+            x=chart["dates"], y=fmt.moving_average(chart["values"], 7),
+            mode="lines", name="Media movel (7)", line=dict(color="#d97706", width=2, dash="dot"),
+        ))
     _style_chart(fig, f"{indicators[sid]['name']} — evolucao", fmt.unit_label(indicators[sid]["unit"]))
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, use_container_width=True, config=PLOTLY_CONFIG)
+    st.caption("Dica: passe o mouse para ver os valores; use o icone da camera para baixar o grafico em PNG.")
     st.caption(
         "Series exibidas separadamente, respeitando a unidade e a periodicidade de cada uma. "
         "Nao combinamos unidades diferentes no mesmo eixo."
@@ -203,21 +261,19 @@ def page_history(client: ApiClient) -> None:
         return
 
     sid = st.selectbox("Indicador", list(indicators), format_func=lambda s: indicators[s]["name"])
-    c1, c2, c3 = st.columns(3)
-    start = c1.date_input("Data inicial", value=None, format="DD/MM/YYYY")
-    end = c2.date_input("Data final", value=None, format="DD/MM/YYYY")
-    include_history = c3.checkbox("Incluir versoes anteriores (revisoes)")
+    start, end = _period_selector("hist")
+    include_history = st.checkbox("Incluir versoes anteriores (revisoes)")
 
     limit = st.slider("Registros por pagina", 10, 500, 100, step=10)
     page = st.number_input("Pagina", min_value=1, value=1, step=1)
     offset = (int(page) - 1) * limit
 
     try:
-        resp = client.get_history(
-            sid, start=start.isoformat() if start else None,
-            end=end.isoformat() if end else None, limit=limit, offset=offset,
-            include_history=include_history,
-        )
+        with st.spinner("Consultando o historico..."):
+            resp = client.get_history(
+                sid, start=start, end=end, limit=limit, offset=offset,
+                include_history=include_history,
+            )
     except ApiError as exc:
         st.error(f"Erro ao consultar o historico: {exc.detail}")
         return

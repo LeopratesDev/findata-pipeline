@@ -129,6 +129,11 @@ def test_history_to_chart_skips_invalid_values():
     assert fmt.history_to_chart(items) == {"dates": [], "values": []}
 
 
+def test_moving_average_trailing_with_leading_nones():
+    assert fmt.moving_average([1, 2, 3, 4], 2) == [None, 1.5, 2.5, 3.5]
+    assert fmt.moving_average([10, 20], 1) == [10, 20]  # janela 1 = sem suavizar
+
+
 # --- importacao da UI (sem executar a interface) ----------------------------
 def test_dashboard_app_imports_cleanly():
     module = importlib.import_module("findata_pipeline.dashboard.app")

@@ -82,6 +82,21 @@ def status_category(status: Optional[str]) -> str:
     return STATUS_LABELS.get(status, ("", "info"))[1]
 
 
+def moving_average(values: list[float], window: int) -> list:
+    """Media movel simples (trailing). Os primeiros (window-1) pontos ficam
+    None para nao distorcer o inicio da serie. Funcao pura, testavel."""
+    if window <= 1:
+        return list(values)
+    out: list = []
+    for i in range(len(values)):
+        if i + 1 < window:
+            out.append(None)
+        else:
+            janela = values[i + 1 - window : i + 1]
+            out.append(sum(janela) / window)
+    return out
+
+
 def history_to_chart(items: list[dict]) -> dict:
     """Converte items (vindos mais recente -> mais antigo) numa serie
     ascendente por data para plotagem. Floats apenas para o grafico;
