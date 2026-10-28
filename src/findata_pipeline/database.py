@@ -76,8 +76,15 @@ CREATE TABLE IF NOT EXISTS runs (
 class Database:
     def __init__(self, path: str) -> None:
         self._path = path
-        self._conn = sqlite3.connect(path)
+        # timeout: espera ate 30s por um bloqueio antes de falhar, em vez de
+        # erro imediato quando a futura API e o pipeline tocam o mesmo arquivo.
+        self._conn = sqlite3.connect(path, timeout=30.0)
         self._conn.row_factory = sqlite3.Row
+        # WAL permite leituras concorrentes enquanto ha uma escrita em curso;
+        # sem ele qualquer escrita bloqueia os leitores. A configuracao fica
+        # gravada no arquivo (basta setar uma vez) e e segura para o uso via
+        # CLI; em :memory: o PRAGMA e um no-op inofensivo.
+        self._conn.execute("PRAGMA journal_mode = WAL")
 
     def initialize(self) -> None:
         with self._conn:
