@@ -1,0 +1,18 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# Ambientes virtuais
+.venv/
+venv/
+
+# Configuracao local
+.env
+
+# Artefatos gerados em tempo de execucao (historico fica so no banco/relatorio)
+data/*.db
+reports/*.csv
+reports/*.json
+logs/*.log
