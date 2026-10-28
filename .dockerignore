@@ -1,0 +1,21 @@
+# Ambiente e caches
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Controle de versao e CI
+.git/
+.github/
+
+# Artefatos locais (persistencia fica em volumes, nao na imagem)
+data/
+reports/
+logs/
+
+# Nao precisam na imagem
+tests/
+docs/
+*.md
+.env

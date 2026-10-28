@@ -1,0 +1,57 @@
+# FinData Pipeline - v2.0
+# Sobe API (FastAPI) + dashboard (Streamlit) com um comando:
+#   docker compose up --build
+# A coleta roda pela API em tarefa controlada (nao ha container de pipeline).
+
+services:
+  api:
+    build: .
+    command: uvicorn findata_pipeline.api.app:app --host 0.0.0.0 --port 8000
+    environment:
+      DB_PATH: /data/findata.db
+      REPORTS_DIR: /reports
+      LOG_LEVEL: INFO
+      CORS_ORIGINS: http://localhost:8501
+      # Token opcional para proteger POST /runs (defina no .env para expor).
+      API_WRITE_TOKEN: ${API_WRITE_TOKEN:-}
+    volumes:
+      - findata-data:/data        # SQLite persistente (caminho consistente)
+      - findata-reports:/reports  # relatorios compartilhados com o dashboard
+    ports:
+      - "8000:8000"               # API + Swagger em /docs
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health').status==200 else 1)"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+    networks: [findata]
+
+  dashboard:
+    build: .
+    command: >
+      streamlit run src/findata_pipeline/dashboard/app.py
+      --server.port 8501 --server.address 0.0.0.0
+      --server.headless true --browser.gatherUsageStats false
+    environment:
+      # Chamada servidor->servidor pela rede interna:
+      API_BASE_URL: http://api:8000
+      # URL que o NAVEGADOR do usuario usa (links de download de relatorio):
+      API_PUBLIC_URL: http://localhost:8000
+      API_WRITE_TOKEN: ${API_WRITE_TOKEN:-}
+    ports:
+      - "8501:8501"
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+    networks: [findata]
+
+volumes:
+  findata-data:
+  findata-reports:
+
+networks:
+  findata:
+    driver: bridge

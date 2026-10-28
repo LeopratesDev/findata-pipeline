@@ -20,6 +20,10 @@ from findata_pipeline.dashboard import format as fmt
 from findata_pipeline.dashboard.client import ApiClient, ApiError
 
 API_BASE_URL = os.environ.get("API_BASE_URL", "http://localhost:8000")
+# URL da API acessivel pelo NAVEGADOR do usuario (links de download). Em Docker,
+# API_BASE_URL aponta para a rede interna (http://api:8000), que o navegador nao
+# resolve; API_PUBLIC_URL e o endereco no host. Default = API_BASE_URL (local).
+API_PUBLIC_URL = os.environ.get("API_PUBLIC_URL", API_BASE_URL)
 API_WRITE_TOKEN = os.environ.get("API_WRITE_TOKEN") or None
 
 PAGES = ["Visao geral", "Graficos", "Historico", "Execucoes", "Relatorios", "Execucao manual"]
@@ -252,7 +256,9 @@ def page_reports(client: ApiClient) -> None:
     for rep in reports:
         c1, c2 = st.columns([3, 1])
         c1.write(f"**{rep['report_id']}** · {rep['size_bytes']} bytes · {fmt.format_datetime(rep['modified_at'])}")
-        c2.link_button("Baixar", client.report_download_url(rep["report_id"]))
+        # URL publica (host), nao a interna da rede Docker, pois o clique
+        # acontece no navegador do usuario.
+        c2.link_button("Baixar", f"{API_PUBLIC_URL}/api/v1/reports/{rep['report_id']}/download")
 
 
 def page_manual_run(client: ApiClient) -> None:
