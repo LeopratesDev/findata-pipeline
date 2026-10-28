@@ -189,8 +189,9 @@ def test_run_detail_404(client):
     assert client.get("/api/v1/runs/9999").status_code == 404
 
 
-def test_create_run_202_and_completes(db_path):
-    runner = PipelineRunner(db_path, client_factory=fake_client_factory, executor=InlineExecutor())
+def test_create_run_202_and_completes(db_path, tmp_path):
+    runner = PipelineRunner(db_path, client_factory=fake_client_factory,
+                            executor=InlineExecutor(), reports_dir=str(tmp_path / "reports"))
     client = build_client(db_path, runner=runner)
 
     before = client.get("/api/v1/status").json()["observations_count"]
@@ -207,8 +208,9 @@ def test_create_run_202_and_completes(db_path):
     assert detail["trigger"] == "api"
 
 
-def test_create_run_conflict_409(db_path):
-    runner = PipelineRunner(db_path, client_factory=fake_client_factory, executor=DeferredExecutor())
+def test_create_run_conflict_409(db_path, tmp_path):
+    runner = PipelineRunner(db_path, client_factory=fake_client_factory,
+                            executor=DeferredExecutor(), reports_dir=str(tmp_path / "reports"))
     client = build_client(db_path, runner=runner)
 
     first = client.post("/api/v1/runs", json={})
@@ -217,13 +219,25 @@ def test_create_run_conflict_409(db_path):
     assert second.status_code == 409
 
 
-def test_create_run_requires_token_when_configured(db_path):
-    runner = PipelineRunner(db_path, client_factory=fake_client_factory, executor=InlineExecutor())
+def test_create_run_requires_token_when_configured(db_path, tmp_path):
+    runner = PipelineRunner(db_path, client_factory=fake_client_factory,
+                            executor=InlineExecutor(), reports_dir=str(tmp_path / "reports"))
     client = build_client(db_path, runner=runner, write_token="segredo")
 
     assert client.post("/api/v1/runs", json={}).status_code == 401
     ok = client.post("/api/v1/runs", json={}, headers={"X-API-Token": "segredo"})
     assert ok.status_code == 202
+
+
+def test_create_run_writes_report_file(db_path, tmp_path):
+    reports_dir = tmp_path / "reports"
+    runner = PipelineRunner(db_path, client_factory=fake_client_factory,
+                            executor=InlineExecutor(), reports_dir=str(reports_dir))
+    client = build_client(db_path, runner=runner)
+
+    assert client.post("/api/v1/runs", json={}).status_code == 202
+    reports = list(reports_dir.glob("report_*.json"))
+    assert len(reports) == 1  # a coleta via API gravou o relatorio
 
 
 def test_create_run_invalid_series_422(client):

@@ -57,9 +57,13 @@ pelos containers (`/health` ok, dashboard HTTP 200); coleta via API dentro do
 container (**209 observações**); **persistência** confirmada — após
 `docker compose down` + `up`, os dados permaneceram (209).
 
-## J6 — Reproduzir o projeto a partir da documentação ⏳
+## J6 — Reproduzir o projeto a partir da documentação ✅*
 
-**Passos:** outra pessoa clona o repo e, seguindo o README, sobe tudo e
-confirma os dados.
-**Observador:** execução por terceiro / revisão.
-**Prova:** pendente (Etapa 5), após J5.
+**Passos:** seguindo o README, subir a plataforma e confirmar os dados.
+**Observador:** execução dos comandos documentados (nesta sessão). A
+reprodução por **outra pessoa** é o teste final no mundo real.
+**Prova:** todos os comandos do README foram executados e funcionaram —
+pipeline (CLI), API (Uvicorn), dashboard (Streamlit) e `docker compose up
+--build`; a coleta via API gerou relatório; a persistência foi confirmada.
+\*Asterisco: o observador "outra pessoa" não foi exercido; o conteúdo
+documentado, sim.

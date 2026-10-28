@@ -36,12 +36,14 @@ class PipelineRunner:
         db_path: str,
         client_factory: Callable[[], SgsClient] = SgsClient,
         executor=None,
+        reports_dir: Optional[str] = None,
     ) -> None:
         self._db_path = db_path
         self._client_factory = client_factory
         self._executor = executor or ThreadPoolExecutor(
             max_workers=1, thread_name_prefix="pipeline"
         )
+        self._reports_dir = reports_dir or config.REPORTS_DIR
         self._lock = threading.Lock()
 
     def request_run(
@@ -91,9 +93,14 @@ class PipelineRunner:
             db = Database(self._db_path)
             db.initialize()
             client = self._client_factory()
-            run_pipeline(
+            report = run_pipeline(
                 client, db, series_ids=series_ids, start=start, end=end, run_id=run_id
             )
+            # grava o relatorio para a pagina de Relatorios (como o CLI faz)
+            try:
+                report.save(self._reports_dir, fmt="json")
+            except Exception:
+                logger.exception("falha ao salvar relatorio da run %s", run_id)
         except Exception as exc:  # falha inesperada -> marca a run como failed
             logger.exception("execucao %s falhou", run_id)
             try:

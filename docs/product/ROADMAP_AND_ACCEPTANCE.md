@@ -86,4 +86,11 @@ Ver jornada **J5** em [../jpd/JOURNEYS.md](../jpd/JOURNEYS.md).
 **Promessa:** documentação que permite outra pessoa reproduzir tudo; integração
 ponta a ponta verificada (persistência, consulta, execução controlada).
 
-**Estado:** ⏳ pendente (depende da Etapa 4 estar provada).
+**Estado:** ✅ provada.
+**Prova:** README v2 reescrito (arquitetura + diagrama de componentes, execução
+local e Docker, exemplos de requisição/resposta **reais**, testes, persistência/
+backup/restauração, segurança/limitações). Integração ponta a ponta verificada
+na stack Docker: a coleta via API gera relatório listado em `/api/v1/reports`
+(`report_20261028_162524.json`), a consulta por indicador/histórico retorna
+dados reais, e a persistência resistiu a `down`+`up` (209 observações). Os
+comandos do README foram executados nesta sessão.
