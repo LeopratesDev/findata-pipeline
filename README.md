@@ -22,6 +22,14 @@ e as jornadas em [docs/journeys/JOURNEYS.md](docs/journeys/JOURNEYS.md).
 
 ---
 
+## Capturas de tela
+
+| Visão geral | Gráficos |
+|---|---|
+| ![Visão geral do dashboard](docs/img/dashboard-overview.jpg) | ![Gráficos do dashboard](docs/img/dashboard-charts.jpg) |
+
+Capturas reais do dashboard rodando via Docker, com dados coletados do BCB.
+
 ## Objetivo e problema
 
 Em crédito estruturado, operações são indexadas a taxas de mercado ("CDI +
@@ -221,6 +229,22 @@ A inicialização normal **nunca** apaga dados. (Verificado: após `down` + `up`
 1. Canais de alerta externos (webhook/e-mail) além do log.
 2. Autenticação/lock de execução compartilhado para múltiplos workers.
 3. Mais séries e a fonte HTML do Tesouro integrada ao fluxo.
+
+## Decisões técnicas
+
+- **SQLite (e não PostgreSQL):** volume pequeno e foco num sistema coeso e fácil
+  de rodar. SQLite com WAL atende a leitura concorrente API↔pipeline sem um
+  servidor de banco extra. Migrar agora seria prematuro.
+- **`Decimal` como texto (e não `float`):** `float` é binário e acumula erro em
+  taxas; o valor é guardado e trafega como **string canônica**.
+- **Sem Celery/Redis para execução assíncrona:** um `ThreadPoolExecutor(1)` +
+  lock executa a coleta fora da requisição, com status persistido em `runs`.
+  Celery/Redis seriam complexidade sem necessidade concreta neste tamanho.
+- **A API reutiliza o pipeline:** nenhuma regra de negócio é reimplementada — a
+  camada de serviços chama `run_pipeline`/`Database`, preservando idempotência,
+  versionamento e rastreabilidade.
+- **`streamlit-option-menu`:** biblioteca leve e mantida para uma navegação
+  profissional, sem adotar um framework de UI pesado.
 
 ## Documentação
 
