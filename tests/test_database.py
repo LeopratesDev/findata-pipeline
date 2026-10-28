@@ -45,13 +45,40 @@ def test_idempotency_no_duplicates_on_rerun(db):
     assert db.count_observations() == 2  # nada duplicou
 
 
-def test_revision_is_flagged_and_not_overwritten(db):
+def test_revision_keeps_history_and_updates_current(db):
     db.insert_observations([_obs("2024-01-02", "0.04")])
-    stats = db.insert_observations([_obs("2024-01-02", "0.05")])  # valor mudou
+    stats = db.insert_observations([_obs("2024-01-02", "0.05")])  # valor revisado
 
     assert stats.revisions == 1
-    stored = db.get_observations("BCB-SGS-12")[0]["value"]
-    assert stored == "0.04"  # historico preservado
+
+    current = db.get_observations("BCB-SGS-12")
+    assert len(current) == 1
+    assert current[0]["value"] == "0.05"   # atual = valor revisado
+    assert current[0]["version"] == 2
+
+    history = db.get_history("BCB-SGS-12", "2024-01-02")
+    assert [h["value"] for h in history] == ["0.04", "0.05"]   # historico preservado
+    assert history[0]["is_current"] == 0 and history[0]["superseded_at"] is not None
+    assert history[1]["is_current"] == 1 and history[1]["superseded_at"] is None
+
+    assert db.count_observations() == 1    # apenas uma versao atual
+
+
+def test_rerun_after_revision_is_idempotent(db):
+    db.insert_observations([_obs("2024-01-02", "0.04")])
+    db.insert_observations([_obs("2024-01-02", "0.05")])
+    again = db.insert_observations([_obs("2024-01-02", "0.05")])  # mesmo valor atual
+
+    assert again == WriteStats(inserted=0, duplicates=1, revisions=0)
+    assert len(db.get_history("BCB-SGS-12", "2024-01-02")) == 2   # nenhuma versao nova
+
+
+def test_get_observations_excludes_history_by_default(db):
+    db.insert_observations([_obs("2024-01-02", "0.04")])
+    db.insert_observations([_obs("2024-01-02", "0.05")])
+
+    assert len(db.get_observations("BCB-SGS-12")) == 1                      # so atual
+    assert len(db.get_observations("BCB-SGS-12", include_history=True)) == 2  # com historico
 
 
 def test_rejections_are_persisted(db):

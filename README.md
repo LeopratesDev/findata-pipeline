@@ -1,5 +1,7 @@
 # FinData Pipeline
 
+![CI](https://github.com/LeopratesDev/findata-pipeline/actions/workflows/ci.yml/badge.svg)
+
 Pipeline de coleta, validação, persistência e relatório de **indicadores
 financeiros públicos** do Banco Central do Brasil (CDI, Selic e IPCA) —
 os índices que embasam decisões de crédito estruturado e securitização
@@ -203,7 +205,14 @@ Ao rodar **uma segunda vez** a mesma janela, a idempotência aparece:
 | value           | TEXT | `Decimal` como texto canônico           |
 | unit            | TEXT | ex. `percent_per_day`                   |
 | collected_at    | TEXT | quando foi coletado (ISO 8601, UTC)     |
-|                 |      | **UNIQUE(series_id, reference_date)**   |
+| version         | INT  | versão do valor para a (série, data)    |
+| is_current      | INT  | 1 = versão vigente; 0 = histórica       |
+| superseded_at   | TEXT | quando foi aposentada (se histórica)    |
+
+Um **índice parcial único** `(series_id, reference_date) WHERE is_current = 1`
+garante no nível do banco que existe no máximo uma versão vigente por
+(série, data). Revisões geram uma nova versão vigente e preservam a anterior
+no histórico (ver abaixo).
 
 **rejections** — registros recusados (auditoria): `run_id`, `series_id`,
 `raw_data`, `raw_value`, `reason`, `collected_at`.
@@ -216,17 +225,23 @@ Ao rodar **uma segunda vez** a mesma janela, a idempotência aparece:
 
 - Escopo de três séries (CDI, Selic, IPCA). "Spread de crédito" ficou de
   fora por exigir séries mais complexas — decisão consciente de escopo.
-- Revisões de valor (ex.: IPCA revisado) são **detectadas e registradas em
-  log, mas não versionadas**: a v1 preserva o primeiro valor gravado e não
-  sobrescreve. Versionar com histórico é um passo futuro (ver abaixo).
 - `beautifulsoup4` não é exercitado no caminho de produção (fonte é JSON).
 - Sem agendamento/orquestração externa (cron, Airflow) — fora do escopo.
 
+### Revisões de valor (versionadas)
+
+Quando um indicador é revisado (ex.: IPCA revisado pelo IBGE), o sistema
+**não sobrescreve**: a versão vigente é aposentada (`is_current = 0`,
+`superseded_at` preenchido) e a revisão entra como nova versão vigente. O
+histórico completo fica consultável via `Database.get_history(series_id,
+reference_date)`. Reexecutar com o mesmo valor vigente continua idempotente
+(não cria versão nova).
+
 ## Melhorias futuras
 
-1. **Versionar revisões** (`valid_from`/`valid_to`) para manter o histórico
-   completo quando um indicador é revisado — maior fidelidade de auditoria.
-2. **Agendamento e alertas**: rodar a rotina periodicamente e alertar em
+1. **Agendamento e alertas**: rodar a rotina periodicamente e alertar em
    falha de coleta ou em pico de rejeições.
+2. **Teste de contrato** agendado contra o endpoint real do BCB, separado da
+   suíte offline, para detectar mudança de estrutura antes que ela entre no banco.
 3. **Mais séries e um adaptador HTML** (Tesouro Nacional) usando o
    `beautifulsoup4`, com fixtures locais — ampliando a cobertura de dados.
