@@ -3,9 +3,11 @@
 Executar:  streamlit run src/findata_pipeline/dashboard/app.py
 Config:    API_BASE_URL (default http://localhost:8000), API_WRITE_TOKEN (opcional).
 
-A UI e fina: toda consulta passa por ApiClient (client.py) e toda formatacao
-por funcoes puras (format.py), ambas testadas. Importar este modulo NAO
-executa a UI (guardado por __main__), para permitir teste de importacao.
+Interface profissional: navegacao com icones (streamlit-option-menu), tema
+sobrio (.streamlit/config.toml), CSS para cartoes/tipografia e um template
+Plotly consistente. A logica de consulta (client.py) e de formatacao
+(format.py) fica em funcoes puras e testadas; app.py apenas orquestra a UI.
+Importar este modulo NAO executa a UI (guardado por __main__).
 """
 from __future__ import annotations
 
@@ -15,6 +17,7 @@ import os
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
+from streamlit_option_menu import option_menu
 
 from findata_pipeline.dashboard import format as fmt
 from findata_pipeline.dashboard.client import ApiClient, ApiError
@@ -27,15 +30,60 @@ API_PUBLIC_URL = os.environ.get("API_PUBLIC_URL", API_BASE_URL)
 API_WRITE_TOKEN = os.environ.get("API_WRITE_TOKEN") or None
 
 PAGES = ["Visao geral", "Graficos", "Historico", "Execucoes", "Relatorios", "Execucao manual"]
+PAGE_ICONS = ["speedometer2", "graph-up", "table", "clock-history", "file-earmark-bar-graph", "play-circle"]
+
+# Paleta
+NAVY = "#0f2740"
+ACCENT = "#1e6feb"
 
 _CSS = """
 <style>
-.block-container { padding-top: 2rem; max-width: 1100px; }
-h1, h2, h3 { color: #1f3b57; }
-section[data-testid="stSidebar"] { background-color: #0f2a43; }
-section[data-testid="stSidebar"] * { color: #e8eef4; }
+:root { --fd-accent: #1e6feb; --fd-navy: #0f2740; --fd-border: #e6ebf2; --fd-muted: #6b7280; }
+.block-container { padding-top: 1.6rem; padding-bottom: 2rem; max-width: 1180px; }
+h1, h2, h3 { color: #13233a; font-weight: 700; letter-spacing: -0.01em; }
+section[data-testid="stSidebar"] { background-color: var(--fd-navy); }
+section[data-testid="stSidebar"] * { color: #e8eef6; }
+[data-testid="stHeader"] { background: transparent; }
+
+/* Cartoes de indicador */
+.fd-cards { display: flex; gap: 16px; flex-wrap: wrap; margin: 6px 0 4px; }
+.fd-card {
+  flex: 1 1 200px; background: #fff; border: 1px solid var(--fd-border);
+  border-left: 4px solid var(--fd-accent); border-radius: 12px; padding: 16px 18px;
+  box-shadow: 0 1px 2px rgba(16,39,64,.05);
+}
+.fd-card-label { font-size: .82rem; color: var(--fd-muted); font-weight: 600; text-transform: uppercase; letter-spacing: .03em; }
+.fd-card-unit { color: var(--fd-accent); font-weight: 700; }
+.fd-card-value { font-size: 2rem; font-weight: 700; color: #13233a; line-height: 1.15; margin-top: 4px; }
+.fd-card-sub { font-size: .8rem; color: var(--fd-muted); margin-top: 6px; }
+
+/* st.metric como cartao */
+[data-testid="stMetric"] {
+  background: #fff; border: 1px solid var(--fd-border); border-radius: 12px;
+  padding: 12px 16px; box-shadow: 0 1px 2px rgba(16,39,64,.05);
+}
+[data-testid="stMetricValue"] { color: #13233a; }
+
+/* Badge */
+.fd-badge { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: .78rem; font-weight: 600; }
+.fd-ok { background: #e7f6ee; color: #13834a; }
+.fd-off { background: #fdeaea; color: #c0392b; }
+
+/* Rodape da sidebar */
+.fd-brand-title { font-size: 1.25rem; font-weight: 800; color: #fff; margin: 4px 0 0; }
+.fd-brand-sub { font-size: .78rem; color: #9db7d8; margin-bottom: 8px; }
+hr { border-color: rgba(255,255,255,.12); }
 </style>
 """
+
+PLOTLY_LAYOUT = dict(
+    template="plotly_white",
+    font=dict(family="sans-serif", color="#1f2a37", size=13),
+    colorway=[ACCENT, "#16a34a", "#d97706"],
+    margin=dict(l=48, r=24, t=56, b=44),
+    hoverlabel=dict(bgcolor="white"),
+    height=460,
+)
 
 
 def _client() -> ApiClient:
@@ -46,10 +94,25 @@ def _indicator_map(client: ApiClient) -> dict:
     return {i["series_id"]: i for i in client.get_indicators()}
 
 
+def _page_header(title: str, caption: str = "") -> None:
+    st.markdown(f"### {title}")
+    if caption:
+        st.caption(caption)
+
+
+def _style_chart(fig: go.Figure, title: str, y_title: str) -> go.Figure:
+    fig.update_layout(title=title, xaxis_title="Data de referencia", yaxis_title=y_title, **PLOTLY_LAYOUT)
+    fig.update_xaxes(gridcolor="#eef2f7")
+    fig.update_yaxes(gridcolor="#eef2f7")
+    return fig
+
+
 # --------------------------------------------------------------- paginas
 def page_overview(client: ApiClient) -> None:
-    st.header("Visao geral")
-    if not client.health_ok():
+    online = client.health_ok()
+    badge = '<span class="fd-badge fd-ok">API online</span>' if online else '<span class="fd-badge fd-off">API offline</span>'
+    st.markdown(f"### Visao geral &nbsp; {badge}", unsafe_allow_html=True)
+    if not online:
         st.error("API indisponivel. Verifique se o servico esta no ar.")
         return
 
@@ -62,24 +125,28 @@ def page_overview(client: ApiClient) -> None:
 
     st.caption(f"Fonte: BCB-SGS · Registros vigentes: {status['observations_count']}")
 
-    cols = st.columns(len(indicators))
-    for col, ind in zip(cols, indicators):
-        with col:
-            try:
-                latest = client.get_latest(ind["series_id"])
-            except ApiError:
-                latest = {"has_data": False}
-            if latest.get("has_data"):
-                obs = latest["observation"]
-                col.metric(
-                    label=f"{ind['name']} ({fmt.unit_label(ind['unit'])})",
-                    value=fmt.format_value(obs["value"]),
-                )
-                col.caption(f"Ref.: {fmt.format_date(obs['reference_date'])}")
-            else:
-                col.metric(label=f"{ind['name']}", value="sem dados")
+    # Cartoes dos indicadores (HTML proprio para um visual coeso)
+    cards = []
+    for ind in indicators:
+        try:
+            latest = client.get_latest(ind["series_id"])
+        except ApiError:
+            latest = {"has_data": False}
+        if latest.get("has_data"):
+            obs = latest["observation"]
+            value = fmt.format_value(obs["value"])
+            sub = f"Ref.: {fmt.format_date(obs['reference_date'])}"
+        else:
+            value, sub = "—", "sem dados"
+        cards.append(
+            f'<div class="fd-card"><div class="fd-card-label">{ind["name"]} '
+            f'<span class="fd-card-unit">{fmt.unit_label(ind["unit"])}</span></div>'
+            f'<div class="fd-card-value">{value}</div>'
+            f'<div class="fd-card-sub">{sub}</div></div>'
+        )
+    st.markdown(f'<div class="fd-cards">{"".join(cards)}</div>', unsafe_allow_html=True)
 
-    st.divider()
+    st.write("")
     c1, c2, c3 = st.columns(3)
     c1.metric("Ultima coleta", fmt.format_datetime(status.get("last_successful_collection")) or "—")
     last_run = status.get("last_run")
@@ -88,26 +155,22 @@ def page_overview(client: ApiClient) -> None:
 
 
 def page_charts(client: ApiClient) -> None:
-    st.header("Graficos")
+    _page_header("Graficos", "Evolucao historica por indicador — cada serie com a sua unidade.")
     try:
         indicators = _indicator_map(client)
     except ApiError as exc:
         st.error(f"Erro ao consultar a API: {exc.detail}")
         return
 
-    sid = st.selectbox(
-        "Indicador", list(indicators), format_func=lambda s: indicators[s]["name"]
-    )
+    sid = st.selectbox("Indicador", list(indicators), format_func=lambda s: indicators[s]["name"])
     c1, c2 = st.columns(2)
     start = c1.date_input("Data inicial", value=None, format="DD/MM/YYYY")
     end = c2.date_input("Data final", value=None, format="DD/MM/YYYY")
 
     try:
         resp = client.get_history(
-            sid,
-            start=start.isoformat() if start else None,
-            end=end.isoformat() if end else None,
-            limit=1000,
+            sid, start=start.isoformat() if start else None,
+            end=end.isoformat() if end else None, limit=1000,
         )
     except ApiError as exc:
         st.error(f"Erro ao consultar o historico: {exc.detail}")
@@ -118,16 +181,12 @@ def page_charts(client: ApiClient) -> None:
         st.info("Nenhum dado para o periodo selecionado.")
         return
 
-    unit = indicators[sid]["unit"]
     fig = go.Figure()
-    fig.add_trace(go.Scatter(x=chart["dates"], y=chart["values"], mode="lines", name=indicators[sid]["name"]))
-    fig.update_layout(
-        title=f"{indicators[sid]['name']} — evolucao",
-        xaxis_title="Data de referencia",
-        yaxis_title=fmt.unit_label(unit),
-        margin=dict(l=40, r=20, t=50, b=40),
-        height=460,
-    )
+    fig.add_trace(go.Scatter(
+        x=chart["dates"], y=chart["values"], mode="lines", name=indicators[sid]["name"],
+        line=dict(color=ACCENT, width=2), fill="tozeroy", fillcolor="rgba(30,111,235,.08)",
+    ))
+    _style_chart(fig, f"{indicators[sid]['name']} — evolucao", fmt.unit_label(indicators[sid]["unit"]))
     st.plotly_chart(fig, use_container_width=True)
     st.caption(
         "Series exibidas separadamente, respeitando a unidade e a periodicidade de cada uma. "
@@ -136,7 +195,7 @@ def page_charts(client: ApiClient) -> None:
 
 
 def page_history(client: ApiClient) -> None:
-    st.header("Historico")
+    _page_header("Historico", "Tabela pesquisavel dos registros, com exportacao em CSV.")
     try:
         indicators = _indicator_map(client)
     except ApiError as exc:
@@ -155,11 +214,8 @@ def page_history(client: ApiClient) -> None:
 
     try:
         resp = client.get_history(
-            sid,
-            start=start.isoformat() if start else None,
-            end=end.isoformat() if end else None,
-            limit=limit,
-            offset=offset,
+            sid, start=start.isoformat() if start else None,
+            end=end.isoformat() if end else None, limit=limit, offset=offset,
             include_history=include_history,
         )
     except ApiError as exc:
@@ -174,14 +230,10 @@ def page_history(client: ApiClient) -> None:
     st.caption(f"{resp['total']} registros no total · exibindo {resp['count']} (pagina {page}).")
     rows = [
         {
-            "Indicador": indicators[sid]["name"],
-            "Codigo": indicators[sid]["sgs_code"],
-            "Data de referencia": fmt.format_date(it["reference_date"]),
-            "Valor": it["value"],
-            "Unidade": fmt.unit_label(it["unit"]),
-            "Fonte": it["source"],
-            "Coletado em": fmt.format_datetime(it["collected_at"]),
-            "Versao": it["version"],
+            "Indicador": indicators[sid]["name"], "Codigo": indicators[sid]["sgs_code"],
+            "Data de referencia": fmt.format_date(it["reference_date"]), "Valor": it["value"],
+            "Unidade": fmt.unit_label(it["unit"]), "Fonte": it["source"],
+            "Coletado em": fmt.format_datetime(it["collected_at"]), "Versao": it["version"],
             "Vigente": "sim" if it["is_current"] else "nao",
         }
         for it in items
@@ -191,16 +243,12 @@ def page_history(client: ApiClient) -> None:
 
     buffer = io.StringIO()
     df.to_csv(buffer, index=False)
-    st.download_button(
-        "Exportar CSV (filtro atual)",
-        data=buffer.getvalue(),
-        file_name=f"historico_{sid}.csv",
-        mime="text/csv",
-    )
+    st.download_button("Exportar CSV (filtro atual)", data=buffer.getvalue(),
+                       file_name=f"historico_{sid}.csv", mime="text/csv")
 
 
 def page_runs(client: ApiClient) -> None:
-    st.header("Execucoes do pipeline")
+    _page_header("Execucoes do pipeline", "Historico das coletas, com detalhe e motivos de rejeicao.")
     try:
         runs = client.list_runs(limit=50)["items"]
     except ApiError as exc:
@@ -212,17 +260,11 @@ def page_runs(client: ApiClient) -> None:
 
     table = [
         {
-            "ID": r["id"],
-            "Inicio": fmt.format_datetime(r["started_at"]),
-            "Status": fmt.status_label(r["status"]),
-            "Extraidos": r["extracted"],
-            "Validos": r["valid"],
-            "Rejeitados": r["rejected"],
-            "Inseridos": r["inserted"],
-            "Duplicados": r["duplicates"],
-            "Revisoes": r["revisions"],
-            "Duracao": fmt.format_duration(r["duration_seconds"]),
-            "Origem": r["trigger"] or "—",
+            "ID": r["id"], "Inicio": fmt.format_datetime(r["started_at"]),
+            "Status": fmt.status_label(r["status"]), "Extraidos": r["extracted"],
+            "Validos": r["valid"], "Rejeitados": r["rejected"], "Inseridos": r["inserted"],
+            "Duplicados": r["duplicates"], "Revisoes": r["revisions"],
+            "Duracao": fmt.format_duration(r["duration_seconds"]), "Origem": r["trigger"] or "—",
         }
         for r in runs
     ]
@@ -244,7 +286,7 @@ def page_runs(client: ApiClient) -> None:
 
 
 def page_reports(client: ApiClient) -> None:
-    st.header("Relatorios")
+    _page_header("Relatorios", "Relatorios gerados pelo pipeline (JSON).")
     try:
         reports = client.list_reports()
     except ApiError as exc:
@@ -256,17 +298,16 @@ def page_reports(client: ApiClient) -> None:
     for rep in reports:
         c1, c2 = st.columns([3, 1])
         c1.write(f"**{rep['report_id']}** · {rep['size_bytes']} bytes · {fmt.format_datetime(rep['modified_at'])}")
-        # URL publica (host), nao a interna da rede Docker, pois o clique
-        # acontece no navegador do usuario.
+        # URL publica (host), nao a interna da rede Docker.
         c2.link_button("Baixar", f"{API_PUBLIC_URL}/api/v1/reports/{rep['report_id']}/download")
 
 
 def page_manual_run(client: ApiClient) -> None:
-    st.header("Execucao manual")
+    _page_header("Execucao manual", "Dispare uma nova coleta e acompanhe o status.")
     st.info("A coleta roda em segundo plano e pode levar alguns segundos. O status fica rastreavel abaixo.")
 
     confirm = st.checkbox("Confirmo que desejo iniciar uma nova coleta")
-    if st.button("Solicitar nova coleta", disabled=not confirm):
+    if st.button("Solicitar nova coleta", type="primary", disabled=not confirm):
         try:
             resp = client.create_run()
             st.session_state["last_run_id"] = resp["run_id"]
@@ -283,8 +324,7 @@ def page_manual_run(client: ApiClient) -> None:
     if run_id:
         st.divider()
         st.write(f"Acompanhando execucao **{run_id}**")
-        if st.button("Atualizar status"):
-            pass  # o rerun refaz a consulta abaixo
+        st.button("Atualizar status")  # o rerun refaz a consulta abaixo
         try:
             status = client.get_run_status(int(run_id))
             st.write(f"Status atual: **{fmt.status_label(status['status'])}**")
@@ -295,14 +335,28 @@ def page_manual_run(client: ApiClient) -> None:
 
 
 def render() -> None:
-    st.set_page_config(page_title="FinData Pipeline", page_icon=None, layout="wide")
+    st.set_page_config(page_title="FinData Pipeline", page_icon=":bar_chart:", layout="wide")
     st.markdown(_CSS, unsafe_allow_html=True)
 
     with st.sidebar:
-        st.title("FinData Pipeline")
-        st.caption("Plataforma de Inteligencia de Indicadores Financeiros")
-        page = st.radio("Navegacao", PAGES, label_visibility="collapsed")
-        st.divider()
+        st.markdown('<div class="fd-brand-title">FinData Pipeline</div>', unsafe_allow_html=True)
+        st.markdown('<div class="fd-brand-sub">Inteligencia de Indicadores Financeiros</div>', unsafe_allow_html=True)
+        page = option_menu(
+            menu_title=None,
+            options=PAGES,
+            icons=PAGE_ICONS,
+            default_index=0,
+            styles={
+                "container": {"background-color": NAVY, "padding": "4px 0"},
+                "icon": {"color": "#9db7d8", "font-size": "1rem"},
+                "nav-link": {
+                    "color": "#d7e2f0", "font-size": "0.95rem", "text-align": "left",
+                    "margin": "2px 6px", "border-radius": "8px", "--hover-color": "#16314f",
+                },
+                "nav-link-selected": {"background-color": ACCENT, "color": "white", "font-weight": "600"},
+            },
+        )
+        st.markdown("<hr/>", unsafe_allow_html=True)
         st.caption(f"API: {API_BASE_URL}")
 
     client = _client()

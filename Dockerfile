@@ -17,8 +17,9 @@ WORKDIR /app
 COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Codigo
+# Codigo e tema do dashboard
 COPY src ./src
+COPY .streamlit ./.streamlit
 
 # Diretorios persistentes (montados como volumes no compose)
 RUN mkdir -p /data /reports && chown -R appuser:appuser /app /data /reports
