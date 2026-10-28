@@ -41,10 +41,10 @@ três garantias que este projeto demonstra:
 - **SQLite** (`sqlite3`) — persistência
 - **pytest** — testes automatizados
 - **logging** — rastreabilidade de execução
-- **beautifulsoup4** — declarado por fazer parte do escopo do projeto, mas
-  **não usado no caminho de produção**: a fonte escolhida (API SGS) é JSON,
-  e forçar parsing de HTML seria complexidade desnecessária. Fica reservado
-  para um eventual adaptador da fonte HTML do Tesouro Nacional.
+- **beautifulsoup4** — usado pelo adaptador de fonte HTML (`html_source.py`),
+  que parseia tabelas HTML. A fonte principal (API SGS) é JSON; o adaptador
+  cobre fontes tabulares em HTML e é demonstrado com um fixture local (veja
+  a nota de honestidade na seção *Fonte alternativa*).
 
 ## Fonte de dados
 
@@ -93,8 +93,12 @@ API SGS ->|  scraper.py | --> | validator.py | --> | database.py | --> SQLite
 - **config.py** — registro central das séries (código, unidade, limites).
 - **scraper.py** — cliente HTTP; `parse_sgs_json` é função pura (testável).
 - **validator.py** — normaliza e valida por série; separa válidos de rejeitados.
-- **database.py** — SQLite com `UNIQUE(series_id, reference_date)` e transações.
+- **database.py** — SQLite versionado (índice parcial único por versão
+  vigente) e transações.
 - **reporter.py** — estatísticas, resumo e export.
+- **alerts.py** — avaliação de alertas pós-execução.
+- **html_source.py** — adaptador de fonte HTML (BeautifulSoup) para fontes
+  que publicam tabelas; converte para o mesmo formato do scraper do SGS.
 - **main.py** — orquestração, CLI (argparse) e código de saída.
 
 ## Estrutura de pastas
@@ -107,6 +111,8 @@ findata-pipeline/
 │   ├── validator.py      # validação/normalização
 │   ├── database.py       # persistência SQLite
 │   ├── reporter.py       # relatório e export
+│   ├── alerts.py         # alertas pós-execução
+│   ├── html_source.py    # adaptador de fonte HTML (BeautifulSoup)
 │   └── main.py           # ponto de entrada
 ├── tests/
 │   ├── fixtures/         # respostas de exemplo (JSON/HTML) para testes
@@ -115,6 +121,7 @@ findata-pipeline/
 │   ├── test_database.py
 │   ├── test_reporter.py
 │   ├── test_alerts.py
+│   ├── test_html_source.py
 │   ├── test_main.py      # integração ponta-a-ponta (sem rede)
 │   └── test_contract.py  # contrato contra a API real (só com --run-contract)
 ├── .github/workflows/    # CI (testes) e coleta agendada
@@ -207,6 +214,19 @@ um alerta dispara, para servir de evidência. Localmente, o mesmo papel cabe
 ao Agendador de Tarefas (Windows) ou ao cron (Linux) chamando o comando do
 pipeline.
 
+## Fonte alternativa (adaptador HTML)
+
+O módulo `html_source.py` usa **BeautifulSoup** para extrair uma tabela HTML
+(colunas localizadas pelo cabeçalho) e devolve registros no mesmo formato do
+scraper do SGS — então validator e database funcionam sem alteração.
+
+> **Nota de honestidade:** a página real do Tesouro Nacional (Oracle APEX) é
+> renderizada via JavaScript e **não** é extraível com `requests` +
+> BeautifulSoup (exigiria um navegador headless). Por isso o adaptador é
+> demonstrado contra um fixture HTML representativo, claramente marcado como
+> dado de teste (`tests/fixtures/tesouro_sample.html`), e serve para qualquer
+> fonte que publique uma tabela HTML estática.
+
 ## Exemplo de relatório (`reports/report_*.json`)
 
 ```json
@@ -276,5 +296,5 @@ reference_date)`. Reexecutar com o mesmo valor vigente continua idempotente
 
 1. **Canais de alerta externos** (webhook/e-mail) além do log, para que a
    falha chegue a quem opera sem depender de olhar o artefato.
-2. **Mais séries e um adaptador HTML** (Tesouro Nacional) usando o
-   `beautifulsoup4`, com fixtures locais — ampliando a cobertura de dados.
+2. **Ligar o adaptador HTML a uma fonte real** com tabela estática (ou um
+   navegador headless para a página APEX do Tesouro) e integrá-lo ao `main`.

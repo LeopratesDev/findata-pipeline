@@ -3,7 +3,6 @@ pandas>=2.2,<3
 beautifulsoup4>=4.12,<5
 pytest>=8.0,<9
 
-# Nota de engenharia: beautifulsoup4 consta da lista de tecnologias do
-# projeto, mas a fonte escolhida (API SGS do Banco Central) e' JSON, entao o
-# caminho de producao nao faz parsing de HTML. A dependencia fica declarada
-# para o adaptador HTML alternativo (Tesouro Nacional), documentado no README.
+# Nota: beautifulsoup4 e' usado pelo adaptador de fonte HTML (html_source.py).
+# A fonte principal (API SGS do BCB) e' JSON; o adaptador cobre fontes que
+# publicam os dados em tabela HTML e e' demonstrado com um fixture local.
